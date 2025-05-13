@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Медсестри та палати (AJAX)</title>
+    <script>
+        function logAndSend(callback, endpointName) {
+            const browser = navigator.userAgent;
+            const time = new Date().toISOString();
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const data = {
+                        time: time,
+                        browser: browser,
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude,
+                        endpoint: endpointName
+                    };
+
+                    // Надсилання логів на сервер
+                    fetch('log.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    // Основний виклик запиту
+                    callback();
+                }, () => callback());
+            } else {
+                callback();
+            }
+        }
+
+        function fetchNurse() {
+            logAndSend(() => {
+                const nurseId = document.getElementById("nurse_id").value;
+                const resultDiv = document.getElementById("result_nurse");
+
+                const xhr = new XMLHttpRequest();
+                xhr.open("GET", `nurse.php?nurse_id=${nurseId}`, true);
+                xhr.onload = function () {
+                    if (xhr.status === 200) {
+                        resultDiv.innerHTML = xhr.responseText;
+                    }
+                };
+                xhr.send();
+            }, 'nurse.php');
+        }
+
+        function fetchDepartment() {
+            logAndSend(() => {
+                const departmentId = document.getElementById("department_id").value;
+                const resultDiv = document.getElementById("result_department");
+
+                const xhr = new XMLHttpRequest();
+                xhr.open("GET", `department.php?department_id=${departmentId}`, true);
+                xhr.onload = function () {
+                    if (xhr.status === 200) {
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(xhr.responseText, "application/xml");
+                        const nurses = xmlDoc.getElementsByTagName("nurse");
+
+                        let output = "<h2>Медсестри відділення:</h2>";
+                        for (let i = 0; i < nurses.length; i++) {
+                            output += nurses[i].getElementsByTagName("name")[0].textContent + "<br>";
+                        }
+                        resultDiv.innerHTML = output;
+                    }
+                };
+                xhr.send();
+            }, 'department.php');
+        }
+
+        function fetchShift() {
+            logAndSend(() => {
+                const shift = document.getElementById("shift").value;
+                const resultDiv = document.getElementById("result_shift");
+
+                fetch(`shift.php?shift=${shift}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let output = "<h2>Чергування у зміну:</h2>";
+                        if (data.length > 0) {
+                            data.forEach(nurse => {
+                                output += `${nurse.name} - ${nurse.ward_name}<br>`;
+                            });
+                        } else {
+                            output += "Дані не знайдено.";
+                        }
+                        resultDiv.innerHTML = output;
+                    });
+            }, 'shift.php');
+        }
+    </script>
+</head>
+<body>
+    <h1>Пошук інформації про медсестер та палати</h1>
+
+    <h2>Перелік палат, у яких чергує обрана медсестра (Text Response)</h2>
+    <input type="number" id="nurse_id" required>
+    <button onclick="fetchNurse()">Пошук</button>
+    <div id="result_nurse"></div>
+
+    <h2>Медсестри обраного відділення (XML Response)</h2>
+    <input type="number" id="department_id" required>
+    <button onclick="fetchDepartment()">Пошук</button>
+    <div id="result_department"></div>
+
+    <h2>Чергування у зазначену зміну (JSON Response)</h2>
+    <input type="text" id="shift" required>
+    <button onclick="fetchShift()">Пошук</button>
+    <div id="result_shift"></div>
+</body>
+</html>
