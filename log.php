@@ -15,6 +15,7 @@ $options = [
 ];
 
 $pdo = new PDO($dsn, $user, $pass, $options);
+$pdo = new PDO($dsn, $user, $pass, $options);
 
 $data = json_decode(file_get_contents("php://input"), true);
 
